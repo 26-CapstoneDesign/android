@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#FDFDFD"
+    android:padding="24dp">
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <TextView
+            android:id="@+id/tv_ocr_result"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="여기에 OCR 결과가 나타납니다."
+            android:textColor="#333333"
+            android:textSize="20sp"
+            android:lineSpacingExtra="10dp" /> </ScrollView>
+
+</androidx.constraintlayout.widget.ConstraintLayout>
