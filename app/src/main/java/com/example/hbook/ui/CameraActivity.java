@@ -32,6 +32,8 @@ import com.example.hbook.model.OcrResponse;
 import com.example.hbook.R;
 import com.google.common.util.concurrent.ListenableFuture;
 
+import org.w3c.dom.Text;
+
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
@@ -56,6 +58,8 @@ public class CameraActivity extends AppCompatActivity {
     private ImageCapture imageCapture; // 사진을 캡처하는 역할
     private ExecutorService cameraExecutor; // 카메라 작업을 처리할 별도의 스레드
     private String bookNameFromIntent;  // 이전 화면에서 넘겨받은 책 이름
+    private List<File> capturedFiles = new ArrayList<>();  // 찍은 사진들 모아둘 리스트
+    private TextView btnSendMultiple;
 
     // 갤러리에서 사진을 골랐을 때 결과 받아옴
     private final ActivityResultLauncher<String> galleryLauncher =
@@ -86,6 +90,7 @@ public class CameraActivity extends AppCompatActivity {
         View btnCapture = findViewById(R.id.btn_capture);
         TextView tvBack = findViewById(R.id.tv_back);
         TextView tvBookTitle = findViewById(R.id.tv_book_title);
+        btnSendMultiple = findViewById(R.id.btn_send_multiple);
 
         if (bookNameFromIntent != null) {
             tvBookTitle.setText(bookNameFromIntent);
@@ -108,6 +113,18 @@ public class CameraActivity extends AppCompatActivity {
         // 4. 갤러리 로직
         btnGallery.setOnClickListener(v -> {
             galleryLauncher.launch("image/*");
+        });
+
+        // 5. 변환하기 로직
+        btnSendMultiple.setOnClickListener(v -> {
+            if (!capturedFiles.isEmpty()) {
+                Toast.makeText(this, capturedFiles.size() +  "장 변환을 시작합니다.", Toast.LENGTH_SHORT).show();
+
+                btnSendMultiple.setEnabled(false);
+                btnSendMultiple.setText("변환 중...");
+
+                uploadMultipleToServer(capturedFiles);
+            }
         });
 
         cameraExecutor = Executors.newSingleThreadExecutor();
@@ -182,7 +199,8 @@ public class CameraActivity extends AppCompatActivity {
         if (imageCapture == null) return;
 
         // 사진이 저장될 폴더와 파일 이름 만들기 (임시 캐시 폴더에 저장)
-        File photoFile = new File(getCacheDir(), "temp_ocr.jpg");
+        String timeStamp = String.valueOf(System.currentTimeMillis());  // 파일 덮어쓰기 방지
+        File photoFile = new File(getCacheDir(), "temp_ocr_" + timeStamp + ".jpg");
 
         ImageCapture.OutputFileOptions outputOptions = new ImageCapture.OutputFileOptions.Builder(photoFile).build();
 
@@ -190,8 +208,12 @@ public class CameraActivity extends AppCompatActivity {
         imageCapture.takePicture(outputOptions, ContextCompat.getMainExecutor(this), new ImageCapture.OnImageSavedCallback() {
             @Override
             public void onImageSaved(@NonNull ImageCapture.OutputFileResults outputFileResults) {
-                Toast.makeText(CameraActivity.this, "사진 저장 완료: ", Toast.LENGTH_SHORT).show();
-                uploadToServer(photoFile);
+                capturedFiles.add(photoFile);
+
+                btnSendMultiple.setText(capturedFiles.size() + "장 변환");
+                btnSendMultiple.setVisibility(View.VISIBLE);
+
+                Toast.makeText(CameraActivity.this, "사진 촬영됨 (" + capturedFiles.size() + "장)", Toast.LENGTH_SHORT).show();
             }
 
             @Override
@@ -206,54 +228,7 @@ public class CameraActivity extends AppCompatActivity {
         return ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED;
     }
 
-    // 서버로 사진을 전송하는 함수
-    private void uploadToServer(File photoFile) {
-        // 1. 서버 주소 설정
-        Retrofit retrofit = new Retrofit.Builder()
-                .baseUrl("https://egal-furcately-nydia.ngrok-free.dev/")
-                .addConverterFactory(GsonConverterFactory.create())
-                .build();
-
-        ApiService apiService = retrofit.create(ApiService.class);
-
-        // 2. 사진 파일을 Multipart 형식으로 변환
-        RequestBody requestFile = RequestBody.create(MediaType.parse("image/jpeg"), photoFile);
-        MultipartBody.Part body = MultipartBody.Part.createFormData("image", photoFile.getName(), requestFile);
-
-        // 3. 페이지 번호 데이터 준비
-        RequestBody pageNumBody = RequestBody.create(MediaType.parse("text/plain"), "1");
-
-        // 4. 통신 시작
-        Call<OcrResponse> call = apiService.uploadImage(body, pageNumBody);
-        call.enqueue(new Callback<OcrResponse>() {
-            @Override
-            public void onResponse(Call<OcrResponse> call, Response<OcrResponse> response) {
-                if (response.isSuccessful() && response.body() != null) {
-                    String resultText = response.body().extracted_text;
-                    Toast.makeText(CameraActivity.this, "서버 전송 성공", Toast.LENGTH_SHORT).show();
-
-                    Intent intent = new Intent(CameraActivity.this, ViewerActivity.class);
-                    intent.putExtra("OCR_TEXT", resultText);
-                    startActivity(intent);
-
-                    finish();
-                } else {
-                    Toast.makeText(CameraActivity.this, "서버 응답 오류", Toast.LENGTH_SHORT).show();
-                }
-
-                // 처리 후 기기에서 임시 파일 삭제
-                if (photoFile.exists()) { photoFile.delete(); }
-            }
-
-            @Override
-            public void onFailure(Call<OcrResponse> call, Throwable t) {
-                Toast.makeText(CameraActivity.this, "서버 연결 실패: " + t.getMessage(), Toast.LENGTH_SHORT).show();
-
-                if (photoFile.exists()) { photoFile.delete(); }
-            }
-        });
-    }
-
+    // 서버로 사진들 전송하는 함수
     private void uploadMultipleToServer(List<File> fileList) {
         Retrofit retrofit = new Retrofit.Builder()
                 .baseUrl("https://egal-furcately-nydia.ngrok-free.dev/")
@@ -278,7 +253,45 @@ public class CameraActivity extends AppCompatActivity {
         call.enqueue(new Callback<OcrResponse>() {
             @Override
             public void onResponse(Call<OcrResponse> call, Response<OcrResponse> response) {
-                for (File f : fileList) { if (f.exists()) f.delete();}
+                if (response.isSuccessful() && response.body() != null) {
+                    OcrResponse ocrData = response.body();
+
+                    if ("success".equals(ocrData.status) && ocrData.results != null) {
+                        StringBuilder fullText = new StringBuilder();
+
+                        if (ocrData.results != null && !ocrData.results.isEmpty()) {
+                            for (OcrResponse.PageResult page : ocrData.results) {
+                                if (page.extracted_text != null) {
+                                    fullText.append(page.extracted_text).append("\n\n");
+                                }
+                            }
+                        } else if (ocrData.extracted_text != null) {
+                            fullText.append(ocrData.extracted_text);
+                        }
+
+                        Toast.makeText(CameraActivity.this, "변환 완료", Toast.LENGTH_SHORT).show();
+
+                        // 1. 텍스트뷰로 이동하기 위한 인텐트 생성
+                        Intent intent = new Intent(CameraActivity.this, ViewerActivity.class);
+
+                        // 2. 합친 텍스트와 책 제목을 함께 보내기
+                        intent.putExtra("OCR_TEXT", fullText.toString().trim());
+                        if (bookNameFromIntent != null) {
+                            intent.putExtra("BOOK_NAME", bookNameFromIntent);
+                        }
+
+                        // 3. 텍스트뷰로 이동
+                        startActivity(intent);
+                        finish();
+                    } else {
+                        Toast.makeText(CameraActivity.this, "서버 응답 오류", Toast.LENGTH_SHORT).show();
+                    }
+                } else {
+                    Toast.makeText(CameraActivity.this, "서버 응답 오류 (JSON 파싱 에러)", Toast.LENGTH_SHORT).show();
+                }
+
+                for (File f : capturedFiles) { if (f.exists()) f.delete(); }
+                capturedFiles.clear();
             }
 
             @Override

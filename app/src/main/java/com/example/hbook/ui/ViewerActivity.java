@@ -18,8 +18,12 @@ public class ViewerActivity extends AppCompatActivity {
 
         // 카메라에서 넘겨준 텍스트를 받아서 텍스트뷰에 띄움
         String ocrText = getIntent().getStringExtra("OCR_TEXT");
-        if (ocrText != null) {
+
+        // 텍스트뷰에 내용 채우기
+        if (ocrText != null && !ocrText.isEmpty()) {
             tvResult.setText(ocrText);
+        } else {
+            tvResult.setText("변환된 텍스트가 없습니다.");
         }
     }
 }
