@@ -16,6 +16,7 @@ import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.hbook.R;
+import com.example.hbook.data.AppDatabase;
 import com.example.hbook.model.Book;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
@@ -24,31 +25,31 @@ import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
 
+    private RecyclerView rvLibrary;
+    private BookAdapter adapter;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        FloatingActionButton fabAdd = findViewById(R.id.fab_add);
-        fabAdd.setOnClickListener(view -> showNameInputDialog());
-
-        RecyclerView rvLibrary = findViewById(R.id.rv_library);
+        rvLibrary = findViewById(R.id.rv_library);
         rvLibrary.setLayoutManager(new GridLayoutManager(this, 3));
 
-        List<Book> dummyBooks = new ArrayList<>();
-        dummyBooks.add(new Book("소년이 온다", true));
-        dummyBooks.add(new Book("반지의 제왕", true));
-        dummyBooks.add(new Book("노인과 바다", false));
+        FloatingActionButton fabAdd = findViewById(R.id.fab_add);
+        fabAdd.setOnClickListener(view -> showNameInputDialog());
+    }
 
-        BookAdapter adapter = new BookAdapter(dummyBooks);
+    @Override
+    protected void onResume() {
+        super.onResume();
+
+        AppDatabase db = AppDatabase.getInstance(this);
+
+        List<Book> savedBooks = db.libraryDao().getAllBooks();
+
+        adapter = new BookAdapter(savedBooks);
         rvLibrary.setAdapter(adapter);
-
-        fabAdd.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                showNameInputDialog();
-            }
-        });
     }
 
     private void showNameInputDialog() {

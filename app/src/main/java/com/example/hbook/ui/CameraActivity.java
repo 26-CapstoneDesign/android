@@ -27,6 +27,9 @@ import androidx.camera.view.PreviewView;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
+import com.example.hbook.data.AppDatabase;
+import com.example.hbook.model.Book;
+import com.example.hbook.model.Page;
 import com.example.hbook.network.ApiService;
 import com.example.hbook.model.OcrResponse;
 import com.example.hbook.R;
@@ -59,7 +62,7 @@ public class CameraActivity extends AppCompatActivity {
     private PreviewView viewFinder;
     private ImageCapture imageCapture; // 사진을 캡처하는 역할
     private ExecutorService cameraExecutor; // 카메라 작업을 처리할 별도의 스레드
-    private String bookNameFromIntent;  // 이전 화면에서 넘겨받은 책 이름
+    private String bookName;  // 이전 화면에서 넘겨받은 책 이름
     private List<File> capturedFiles = new ArrayList<>();  // 찍은 사진들 모아둘 리스트
     private TextView btnSendMultiple;
 
@@ -85,7 +88,7 @@ public class CameraActivity extends AppCompatActivity {
         setContentView(R.layout.activity_camera);
 
         // 이전 화면에서 넘겨준 책 이름 있는지 확인
-        bookNameFromIntent = getIntent().getStringExtra("BOOK_NAME");
+        bookName = getIntent().getStringExtra("BOOK_NAME");
 
         viewFinder = findViewById(R.id.viewFinder);
         ImageView btnGallery = findViewById(R.id.btn_gallery);
@@ -94,8 +97,8 @@ public class CameraActivity extends AppCompatActivity {
         TextView tvBookTitle = findViewById(R.id.tv_book_title);
         btnSendMultiple = findViewById(R.id.btn_send_multiple);
 
-        if (bookNameFromIntent != null) {
-            tvBookTitle.setText(bookNameFromIntent);
+        if (bookName != null) {
+            tvBookTitle.setText(bookName);
         }
 
         // 1. 카메라 권한이 있는지 확인
@@ -134,11 +137,11 @@ public class CameraActivity extends AppCompatActivity {
 
     // 뒤로가기 눌렀을 때 동작 처리
     private void handleBackButton() {
-        if (bookNameFromIntent != null) {
+        if (bookName != null) {
             // 메인화면에서 넘어온 경우
             new AlertDialog.Builder(this)
                     .setTitle("스캔 취소")
-                    .setMessage("지금 돌아가면 '" + bookNameFromIntent + "' 추가가 취소됩니다. 돌아가시겠습니까?")
+                    .setMessage("지금 돌아가면 '" + bookName + "' 추가가 취소됩니다. 돌아가시겠습니까?")
                     .setPositiveButton("예", (dialog, which) -> finish())
                     .setNegativeButton("아니요", (dialog, which) -> dialog.cancel())
                     .show();
@@ -265,17 +268,29 @@ public class CameraActivity extends AppCompatActivity {
                 if (response.isSuccessful() && response.body() != null) {
                     OcrResponse ocrData = response.body();
 
-                    if ("success".equals(ocrData.status) && ocrData.results != null) {
+                    if ("success".equals(ocrData.status)) {
+                        AppDatabase db = AppDatabase.getInstance(CameraActivity.this);
+
+                        String bookTitle = (bookName != null) ? bookName : "무제";
+                        Book newBook = new Book(bookTitle);
+                        long generatedBookId = db.libraryDao().insertBook(newBook);
+
                         StringBuilder fullText = new StringBuilder();
 
                         if (ocrData.results != null && !ocrData.results.isEmpty()) {
-                            for (OcrResponse.PageResult page : ocrData.results) {
-                                if (page.extracted_text != null) {
-                                    fullText.append(page.extracted_text).append("\n\n");
+                            for (int i = 0; i < ocrData.results.size(); i++) {
+                                OcrResponse.PageResult pageData = ocrData.results.get(i);
+                                if (pageData.extracted_text != null) {
+                                    fullText.append(pageData.extracted_text).append("\n\n");
+
+                                    Page newPage = new Page((int) generatedBookId, i+1, pageData.extracted_text);
+                                    db.libraryDao().insertPage(newPage);
                                 }
                             }
                         } else if (ocrData.extracted_text != null) {
                             fullText.append(ocrData.extracted_text);
+                            Page newPage = new Page((int) generatedBookId, 1, ocrData.extracted_text);
+                            db.libraryDao().insertPage(newPage);
                         }
 
                         Toast.makeText(CameraActivity.this, "변환 완료", Toast.LENGTH_SHORT).show();
@@ -285,8 +300,8 @@ public class CameraActivity extends AppCompatActivity {
 
                         // 2. 합친 텍스트와 책 제목을 함께 보내기
                         intent.putExtra("OCR_TEXT", fullText.toString().trim());
-                        if (bookNameFromIntent != null) {
-                            intent.putExtra("BOOK_NAME", bookNameFromIntent);
+                        if (bookName != null) {
+                            intent.putExtra("BOOK_NAME", bookName);
                         }
 
                         // 3. 텍스트뷰로 이동

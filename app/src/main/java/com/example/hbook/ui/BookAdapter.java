@@ -65,8 +65,8 @@ public class BookAdapter extends RecyclerView.Adapter<BookAdapter.BookViewHolder
                 if (currentPos != RecyclerView.NO_POSITION) {
                     Book clickedBook = bookList.get(currentPos);
                     Intent intent = new Intent(v.getContext(), ViewerActivity.class);
-                    String dummyText = currnetBook.title + "의 스캔 내용";
-                    intent.putExtra("OCR_TEXT", dummyText);
+                    intent.putExtra("BOOK_ID", clickedBook.id);
+                    intent.putExtra("BOOK_NAME", clickedBook.title);
 
                     v.getContext().startActivity(intent);
                 }
