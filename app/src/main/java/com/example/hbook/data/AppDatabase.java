@@ -10,7 +10,7 @@ import com.example.hbook.model.Book;
 import com.example.hbook.model.Page;
 import com.example.hbook.model.ReaderLog;
 
-@Database(entities = {Book.class, Page.class, ReaderLog.class}, version = 1)
+@Database(entities = {Book.class, Page.class, ReaderLog.class}, version = 2)
 public abstract class AppDatabase extends RoomDatabase {
     public abstract LibraryDao libraryDao();
 

@@ -25,10 +25,10 @@ public interface LibraryDao {
     void deleteBook(Book book);
 
     // 최신순으로 책 목록 가져오기
-    @Query("SELECT * FROM books ORDER BY createdAt DESC")
+    @Query("SELECT * FROM books ORDER BY created_at DESC")
     List<Book> getAllBooks();
 
-    @Query("SELECT * FROM books ORDER BY isFavorite DESC, createdAt DESC")
+    @Query("SELECT * FROM books ORDER BY is_favorite DESC, created_at DESC")
     List<Book> getAllBooksWithFavorite();
 
     // 페이지 하나 저장
@@ -36,12 +36,12 @@ public interface LibraryDao {
     void insertPage(Page page);
 
     // 읽을 책의 모든 페이지 가져오기
-    @Query("SELECT * FROM pages WHERE bookId = :bookId ORDER BY pageNumber ASC")
+    @Query("SELECT * FROM pages WHERE book_id = :bookId ORDER BY page_number ASC")
     List<Page> getPagesForBook(int bookId);
 
     @Insert
     void insertLog(ReaderLog log);
 
-    @Query("SELECT * FROM reader_logs WHERE bookId = :bookId")
+    @Query("SELECT * FROM reader_logs WHERE book_id = :bookId")
     List<ReaderLog> getLogsForBook(int bookId);
 }
