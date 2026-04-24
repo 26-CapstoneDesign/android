@@ -4,8 +4,10 @@ import android.Manifest;
 import android.app.AlertDialog;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
+import android.provider.OpenableColumns;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
@@ -42,6 +44,7 @@ import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -70,15 +73,24 @@ public class CameraActivity extends AppCompatActivity {
     private final ActivityResultLauncher<String> galleryLauncher =
             registerForActivityResult(new ActivityResultContracts.GetMultipleContents(), uris -> {
                 if (uris != null &&!uris.isEmpty()) {
-                    Toast.makeText(this, uris.size() + "장의 사진을 불러왔습니다.", Toast.LENGTH_SHORT).show();
+                    List<Uri> selectedUris = new ArrayList<>(uris);
 
-                    List<File> fileList = new ArrayList<>();
-                    for (Uri uri : uris) {
-                        File file = uriToFile(uri);
-                        if (file != null) fileList.add(file);
+                    selectedUris.sort((uri1, uri2) -> {
+                        String name1 = getFileName(uri1);
+                        String name2 = getFileName(uri2);
+                        return name1.compareTo(name2);
+                    });
+
+                    for (Uri uri : selectedUris) {
+                        File tempFile = uriToFile(uri);
+                        if (tempFile != null) {
+                            capturedFiles.add(tempFile);
+                        }
                     }
 
-                    uploadMultipleToServer(fileList);
+                    btnSendMultiple.setText(capturedFiles.size() + "장 변환");
+                    btnSendMultiple.setVisibility(View.VISIBLE);
+                    Toast.makeText(this, capturedFiles.size() + "장의 사진을 가져왔습니다.", Toast.LENGTH_SHORT).show();
                 }
             });
 
@@ -151,11 +163,11 @@ public class CameraActivity extends AppCompatActivity {
         }
     }
 
-    // 안드로이드 사진첨 데이터를 실제 파일로 복사
+    // 안드로이드 사진첩 데이터를 실제 파일로 복사
     private File uriToFile(Uri uri) {
         try {
             InputStream in = getContentResolver().openInputStream(uri);
-            File tempFile = new File(getCacheDir(), "temp_gallery_ocr.jpg");
+            File tempFile = new File(getCacheDir(), "temp_ocr_" + UUID.randomUUID().toString() + ".jpg");
             FileOutputStream out = new FileOutputStream(tempFile);
             byte[] buffer = new byte[1024];
             int len;
@@ -298,8 +310,8 @@ public class CameraActivity extends AppCompatActivity {
                         // 1. 텍스트뷰로 이동하기 위한 인텐트 생성
                         Intent intent = new Intent(CameraActivity.this, ViewerActivity.class);
 
-                        // 2. 합친 텍스트와 책 제목을 함께 보내기
-                        intent.putExtra("OCR_TEXT", fullText.toString().trim());
+                        // 2. 책 번호와 제목을 함께 보내기
+                        intent.putExtra("BOOK_ID", (int) generatedBookId);
                         if (bookName != null) {
                             intent.putExtra("BOOK_NAME", bookName);
                         }
@@ -323,6 +335,30 @@ public class CameraActivity extends AppCompatActivity {
                 for (File f : fileList) { if (f.exists()) f.delete(); }
             }
         });
+    }
+
+    // 원본 파일 이름 알아내는 함수
+    private String getFileName(Uri uri) {
+        String result = null;
+        if (uri.getScheme().equals("content")) {
+            try (Cursor cursor = getContentResolver().query(uri, null, null, null, null)) {
+                if (cursor != null && cursor.moveToFirst()) {
+                    int index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);
+                    if (index != -1) {
+                        result = cursor.getString(index);
+                    }
+                }
+            }
+        }
+        if (result ==  null) {
+            result = uri.getPath();
+            int cut = result.lastIndexOf('/');
+            if (cut != -1) {
+                result = result.substring(cut + 1);
+            }
+        }
+
+        return result != null ? result : "unknown";
     }
 
     @Override

@@ -5,22 +5,10 @@
     android:layout_height="match_parent"
     android:background="#F5F5F5">
 
-    <ScrollView
+    <androidx.viewpager2.widget.ViewPager2
+        android:id="@+id/view_pager"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:fillViewport="true">
-
-        <TextView
-            android:id="@+id/tv_ocr_result"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:clickable="true"
-            android:focusable="true"
-            android:lineSpacingExtra="8dp"
-            android:padding="24dp"
-            android:textColor="#333333"
-            android:textSize="16sp" />
-    </ScrollView>
+        android:layout_height="match_parent" />
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/top_bar"
