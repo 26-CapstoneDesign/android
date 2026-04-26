@@ -1,5 +1,6 @@
 package com.example.hbook.ui;
 
+import android.util.TypedValue;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -14,15 +15,22 @@ import com.example.hbook.model.Page;
 import java.util.List;
 
 public class PageAdapter extends RecyclerView.Adapter<PageAdapter.PageViewHolder> {
-    private List<Page> pageList;
+    private List<String> pageList;
     private OnPageClickListener listener;
+
+    private float fontSize;
+    private float lineSpacing;
+    private int fontColor;
 
     public interface OnPageClickListener {
         void onPageClick();
     }
 
-    public PageAdapter(List<Page> pageList, OnPageClickListener listener) {
+    public PageAdapter(List<String> pageList, float fontSize, float lineSpacing, int fontColor, OnPageClickListener listener) {
         this.pageList = pageList;
+        this.fontSize = fontSize;
+        this.lineSpacing = lineSpacing;
+        this.fontColor = fontColor;
         this.listener = listener;
     }
 
@@ -35,8 +43,11 @@ public class PageAdapter extends RecyclerView.Adapter<PageAdapter.PageViewHolder
 
     @Override
     public void onBindViewHolder(@NonNull PageViewHolder holder, int position) {
-        Page page = pageList.get(position);
-        holder.tvContent.setText(page.extractedText);
+        holder.tvContent.setText(pageList.get(position));
+
+        holder.tvContent.setTextSize(TypedValue.COMPLEX_UNIT_SP, fontSize);
+        holder.tvContent.setTextColor(fontColor);
+        holder.tvContent.setLineSpacing(0, lineSpacing);
 
         holder.tvContent.setOnClickListener(v -> {
             if (listener != null) listener.onPageClick();
