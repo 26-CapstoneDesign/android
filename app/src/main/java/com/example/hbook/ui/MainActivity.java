@@ -8,10 +8,16 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.EditText;
 import android.widget.FrameLayout;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
+import android.widget.PopupMenu;
+import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.view.MenuCompat;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -27,6 +33,11 @@ public class MainActivity extends AppCompatActivity {
 
     private RecyclerView rvLibrary;
     private BookAdapter adapter;
+    private EditText etSearch;
+    private TextView tvEdit;
+    private LinearLayout layoutDeleteMode;
+    private TextView tvDeleteCount;
+    private FloatingActionButton fabAdd;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -36,8 +47,18 @@ public class MainActivity extends AppCompatActivity {
         rvLibrary = findViewById(R.id.rv_library);
         rvLibrary.setLayoutManager(new GridLayoutManager(this, 3));
 
-        FloatingActionButton fabAdd = findViewById(R.id.fab_add);
-        fabAdd.setOnClickListener(view -> showNameInputDialog());
+        etSearch = findViewById(R.id.et_search);
+        tvEdit = findViewById(R.id.tv_edit);
+        layoutDeleteMode = findViewById(R.id.layout_delete_mode);
+        tvDeleteCount = findViewById(R.id.tv_delete_count);
+        fabAdd = findViewById(R.id.fab_add);
+
+        TextView tvCancelDelete = findViewById(R.id.tv_cancel_delete);
+        TextView tvConfirmDelete = findViewById(R.id.tv_confirm_delete);
+
+        tvEdit.setOnClickListener(v -> showEditMenu(v));
+        tvCancelDelete.setOnClickListener(v -> exitDeleteMode());
+        tvConfirmDelete.setOnClickListener(v -> executeDelete());
     }
 
     @Override
@@ -48,7 +69,9 @@ public class MainActivity extends AppCompatActivity {
 
         List<Book> savedBooks = db.libraryDao().getAllBooks();
 
-        adapter = new BookAdapter(savedBooks);
+        adapter = new BookAdapter(savedBooks, count -> {
+            tvDeleteCount.setText(count + "개 선택");
+        });
         rvLibrary.setAdapter(adapter);
     }
 
@@ -91,5 +114,90 @@ public class MainActivity extends AppCompatActivity {
         });
 
         builder.show();
+    }
+
+    private void showEditMenu(View view) {
+        PopupMenu popup = new PopupMenu(this, view);
+        popup.getMenuInflater().inflate(R.menu.main_menu, popup.getMenu());
+        MenuCompat.setGroupDividerEnabled(popup.getMenu(), true);
+
+        popup.setOnMenuItemClickListener(item -> {
+            int id = item.getItemId();
+
+            if (id == R.id.menu_sort_latest) {
+                refreshBookList("LATEST");
+                return true;
+            } else if (id == R.id.menu_sort_name) {
+                refreshBookList("NAME");
+                return true;
+            } else if (id == R.id.menu_edit_delete) {
+                startDeleteMode();
+                return true;
+            }
+            return false;
+        });
+        popup.show();
+    }
+
+    // 삭제 눌렀을 때 실행
+    private void startDeleteMode() {
+        etSearch.setVisibility(View.GONE);
+        tvEdit.setVisibility(View.GONE);
+
+        layoutDeleteMode.setVisibility(View.VISIBLE);
+        fabAdd.setVisibility(View.GONE);
+
+        tvDeleteCount.setText("0개 선택");
+        if (adapter != null) {
+            adapter.setDeleteMode(true);
+        }
+    }
+
+    // 삭제 취소 후 원래대로 돌아감
+    private void exitDeleteMode() {
+        etSearch.setVisibility(View.VISIBLE);
+        tvEdit.setVisibility(View.VISIBLE);
+
+        layoutDeleteMode.setVisibility(View.GONE);
+        fabAdd.setVisibility(View.VISIBLE);
+
+        if (adapter != null) {
+            adapter.setDeleteMode(false);
+        }
+    }
+
+    // DB에서 체크된 책 삭제
+    private void executeDelete() {
+        if (adapter == null || adapter.getSelectedBooks().isEmpty()) {
+            Toast.makeText(this, "삭제할 책을 선택해주세요.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        AppDatabase db = AppDatabase.getInstance(this);
+
+        for (Book book : adapter.getSelectedBooks()) {
+            db.libraryDao().deleteBook(book);
+        }
+
+        Toast.makeText(this, "선택한 책이 삭제되었습니다.", Toast.LENGTH_SHORT).show();
+
+        refreshBookList("LATEST");
+        exitDeleteMode();
+    }
+
+    private void refreshBookList(String sortType) {
+        AppDatabase db = AppDatabase.getInstance(this);
+        List<Book> books;
+
+        if (sortType.equals("NAME")) {
+            books = db.libraryDao().getAllBooksSortedByName();
+        } else {
+            books = db.libraryDao().getAllBooksSortedByDate();
+        }
+
+        adapter = new BookAdapter(books, count -> {
+            tvDeleteCount.setText(count + "개 선택");
+        });
+        rvLibrary.setAdapter(adapter);
     }
 }

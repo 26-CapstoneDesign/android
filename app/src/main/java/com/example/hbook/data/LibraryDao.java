@@ -28,8 +28,13 @@ public interface LibraryDao {
     @Query("SELECT * FROM books ORDER BY created_at DESC")
     List<Book> getAllBooks();
 
+    // 최신순 정렬
     @Query("SELECT * FROM books ORDER BY is_favorite DESC, created_at DESC")
-    List<Book> getAllBooksWithFavorite();
+    List<Book> getAllBooksSortedByDate();
+
+    // 이름순 정렬
+    @Query("SELECT * FROM books ORDER BY is_favorite DESC, title ASC")
+    List<Book> getAllBooksSortedByName();
 
     // 페이지 하나 저장
     @Insert

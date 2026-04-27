@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <item
+        android:id="@+id/menu_edit_delete"
+        android:title="삭제"
+        app:showAsAction="never" />
+
+    <group android:id="@+id/group_sort">
+        <item
+            android:id="@+id/menu_sort_latest"
+            android:title="정렬> 최신순" />
+        <item
+            android:id="@+id/menu_sort_name"
+            android:title="정렬> 이름순" />
+    </group>
+
+</menu>
